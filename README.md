@@ -10,6 +10,8 @@ que la bibliothèque standard.
 
 → [Guide d'utilisation complet](GUIDE.md)
 
+![Le journal, page du jour](docs/accueil.png)
+
 ## Lancer
 
 ```bash
