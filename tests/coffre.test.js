@@ -142,21 +142,83 @@ describe('integrite', () => {
     await assert.rejects(() => coffre.ouvrir(CODE), /Code incorrect/);
   });
 
-  test('un contenu altere ouvre le coffre vide (comportement actuel)', async () => {
-    const { coffre, etat } = await coffreOuvert();
-    coffre.creerNote().blocks[0].html = SECRET;
-    await coffre.sauver();
-    coffre.fermer();
+});
 
-    etat.coffre.charge = altererDernierOctet(etat.coffre.charge);
+describe('charge corrompue : lecture seule', () => {
+  /** Coffre dont la charge a ete alteree, rouvert avec le bon code. */
+  async function coffreCorrompu() {
+    const ctx = await coffreOuvert();
+    ctx.coffre.creerNote().blocks[0].html = SECRET;
+    await ctx.coffre.sauver();
+    ctx.coffre.fermer();
+    ctx.chargeAvant = ctx.etat.coffre.charge = altererDernierOctet(ctx.etat.coffre.charge);
+    await ctx.coffre.ouvrir(CODE);
+    return ctx;
+  }
 
-    // Le temoin etant intact, l'ouverture reussit ; le dechiffrement du
-    // contenu echoue en silence et retombe sur une liste vide.
-    // Test de constat : ce comportement est discutable, une sauvegarde
-    // ulterieure ecraserait le contenu altere par du vide.
-    await coffre.ouvrir(CODE);
+  test('le coffre s ouvre en lecture seule, pas en coffre vide', async () => {
+    const { coffre } = await coffreCorrompu();
+    // Le temoin a valide le code : ce n'est pas une erreur de code.
     assert.ok(coffre.estOuvert());
+    assert.ok(coffre.estIllisible());
     assert.deepEqual(coffre.lesNotes(), []);
+  });
+
+  test('sauver n ecrase pas le chiffre existant', async () => {
+    const { coffre, etat, chargeAvant } = await coffreCorrompu();
+    await coffre.sauver();
+    // C'est tout l'enjeu : le seul exemplaire du chiffre reste intact.
+    assert.equal(etat.coffre.charge, chargeAvant);
+  });
+
+  test('toute ecriture est refusee', async () => {
+    const { coffre } = await coffreCorrompu();
+    assert.throws(() => coffre.creerNote(), /lecture seule/);
+    await assert.rejects(() => coffre.supprimerNote('sn1'), /lecture seule/);
+    await assert.rejects(
+      () => coffre.ajouterMedia(new Blob([new Uint8Array([1])])),
+      /lecture seule/,
+    );
+    await assert.rejects(() => coffre.supprimerMedia('sc1'), /lecture seule/);
+  });
+
+  test('changer le code est refuse et ne touche pas au sel', async () => {
+    const { coffre, etat } = await coffreCorrompu();
+    const selAvant = etat.coffre.sel;
+    await assert.rejects(
+      () => coffre.changerCode(CODE, 'un-autre-code'),
+      /irrecuperable|irrécupérable/,
+    );
+    // Un nouveau sel aurait rendu l'ancien chiffre dechiffrable par personne.
+    assert.equal(etat.coffre.sel, selAvant);
+  });
+
+  test('fermer remet le coffre dans un etat neuf', async () => {
+    const { coffre } = await coffreCorrompu();
+    coffre.fermer();
+    assert.equal(coffre.estIllisible(), false);
+  });
+
+  test('un coffre legitimement vide n est pas en lecture seule', async () => {
+    const { coffre } = await coffreOuvert();
+    coffre.fermer();
+    await coffre.ouvrir(CODE);
+    assert.equal(coffre.estIllisible(), false);
+    assert.deepEqual(coffre.lesNotes(), []);
+    assert.ok(coffre.creerNote());        // l'ecriture reste permise
+  });
+
+  test('un media illisible annule le changement de code', async () => {
+    const { coffre, etat, medias } = await coffreOuvert();
+    const media = await coffre.ajouterMedia(new Blob([new Uint8Array([1, 2, 3])]));
+    const abime = Buffer.from(await (medias.get(media.id)).arrayBuffer());
+    abime[abime.length - 1] ^= 0xff;
+    medias.set(media.id, new Blob([abime]));
+    const selAvant = etat.coffre.sel;
+
+    await assert.rejects(() => coffre.changerCode(CODE, 'un-autre-code'), /media|média/);
+    // Rien n'a bouge : l'ancienne cle peut encore lire les autres medias.
+    assert.equal(etat.coffre.sel, selAvant);
   });
 });
 

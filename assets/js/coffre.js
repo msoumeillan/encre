@@ -15,6 +15,10 @@
   let cle = null;          // CryptoKey, en mémoire seulement
   let notes = null;        // contenu déchiffré, en mémoire seulement
   let minuterie = null;
+  /* Le code est bon (le témoin l'a prouvé) mais la charge ne se déchiffre
+     pas : le coffre passe en lecture seule et refuse toute écriture, pour
+     ne pas remplacer un chiffré peut-être récupérable par du vide. */
+  let chargeIllisible = false;
   const abonnes = new Set();
 
   const dispo = () => !!(window.crypto && crypto.subtle);
@@ -102,9 +106,21 @@
       throw new Error('Code incorrect.');
     }
     cle = essai;
-    try {
-      notes = JSON.parse(versTexte(await dechiffrer(c.charge)) || '[]');
-    } catch (e) { notes = []; }
+    chargeIllisible = false;
+    if (!c.charge) {
+      notes = [];                       // coffre neuf ou vidé : rien d'anormal
+    } else {
+      try {
+        notes = JSON.parse(versTexte(await dechiffrer(c.charge)) || '[]');
+      } catch (e) {
+        /* Le témoin vient de valider le code : ce n'est donc pas une erreur
+           de code, mais une charge corrompue. On ouvre en lecture seule
+           plutôt que de faire passer le coffre pour vide — une écriture
+           détruirait le seul exemplaire du chiffré. */
+        notes = [];
+        chargeIllisible = true;
+      }
+    }
     relancerMinuterie();
     prevenir();
   }
@@ -112,6 +128,7 @@
   function fermer() {
     cle = null;
     notes = null;
+    chargeIllisible = false;
     clearTimeout(minuterie);
     minuterie = null;
     urlsEnCache.forEach(u => URL.revokeObjectURL(u));
@@ -122,21 +139,28 @@
   /** Change le code sans perdre le contenu : on rechiffre tout. */
   async function changerCode(ancien, nouveau, indice) {
     await ouvrir(ancien);
+    if (chargeIllisible) {
+      throw new Error('Le contenu du coffre est illisible : changer le code le rendrait définitivement irrécupérable. Exportez une sauvegarde avant toute chose.');
+    }
     const contenu = notes.slice();
     const medias = coffre().medias.slice();
     const anciensBlobs = [];
     for (const id of medias) anciensBlobs.push([id, await A.Media.brut(id)]);
 
+    /* Tout déchiffrer AVANT de dériver la nouvelle clé : au-delà de
+       configurer(), l'ancien sel est perdu et ce qui n'a pas été relu ici
+       ne sera plus jamais déchiffrable. Un seul échec annule le changement. */
     const clairs = [];
     for (const [id, chiffre] of anciensBlobs) {
       try { clairs.push([id, await dechiffrer(versB64(await chiffre.arrayBuffer()))]); }
-      catch (e) { clairs.push([id, null]); }
+      catch (e) {
+        throw new Error('Un média du coffre est illisible : le code n’a pas été changé, rien n’a été touché.');
+      }
     }
     await configurer(nouveau, indice);
     notes = contenu;
     coffre().medias = medias;
     for (const [id, donnees] of clairs) {
-      if (!donnees) continue;
       const b64 = await chiffrer(donnees);
       await A.Media.putSecret(id, new Blob([depuisB64(b64)]));
     }
@@ -150,11 +174,15 @@
 
   async function sauver() {
     if (!cle || !notes) return;
+    /* Point de passage unique de toute écriture : c'est ici qu'on protège
+       un chiffré illisible contre son remplacement par une liste vide. */
+    if (chargeIllisible) return;
     coffre().charge = await chiffrer(texteVers(JSON.stringify(notes)));
     A.Store.save(true);
   }
 
   function creerNote() {
+    if (chargeIllisible) throw new Error('Coffre en lecture seule : son contenu est illisible.');
     const n = {
       id: A.uid('sn'), titre: '', icon: '🔒', cover: null, coverPos: 50,
       blocks: [{ id: A.uid('b'), type: 'text', html: '' }],
@@ -166,6 +194,7 @@
   }
 
   async function supprimerNote(id) {
+    if (chargeIllisible) throw new Error('Coffre en lecture seule : son contenu est illisible.');
     const n = (notes || []).find(x => x.id === id);
     if (n) {
       const ids = [];
@@ -183,6 +212,7 @@
   /** Chiffre le fichier puis le range : sur le disque, ce sont des octets illisibles. */
   async function ajouterMedia(file) {
     if (!cle) throw new Error('Coffre verrouillé.');
+    if (chargeIllisible) throw new Error('Coffre en lecture seule : son contenu est illisible.');
     const donnees = await file.arrayBuffer();
     const b64 = await chiffrer(donnees);
     const id = A.uid('sc');
@@ -193,6 +223,7 @@
   }
 
   async function supprimerMedia(id) {
+    if (chargeIllisible) throw new Error('Coffre en lecture seule : son contenu est illisible.');
     const c = coffre();
     c.medias = (c.medias || []).filter(x => x !== id);
     const u = urlsEnCache.get(id);
@@ -231,8 +262,10 @@
     window.addEventListener('pagehide', () => { cle = null; notes = null; });
   }
 
+  const estIllisible = () => chargeIllisible;
+
   A.Coffre = {
-    dispo, estConfigure, estOuvert, configurer, ouvrir, fermer, changerCode,
+    dispo, estConfigure, estOuvert, estIllisible, configurer, ouvrir, fermer, changerCode,
     lesNotes, creerNote, supprimerNote, sauver, sauverPlusTard,
     ajouterMedia, supprimerMedia, dechiffrerMedia,
     onChange, surveiller

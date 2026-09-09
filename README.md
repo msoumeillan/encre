@@ -82,6 +82,31 @@ Le contenu du coffre n'est jamais écrit en clair
 - changer le code **rechiffre** tout le contenu plutôt que de re-dériver une
   clé sur des données existantes.
 
+### Distinguer un coffre vide d'un coffre illisible
+
+Le témoin (`verif`) prouve que le code est bon avant même de toucher au
+contenu. Quand le code est validé mais que la charge, elle, ne se déchiffre
+plus, c'est donc une corruption — pas une erreur de saisie.
+
+Traiter les deux cas de la même façon serait destructeur : le coffre paraîtrait
+vide, l'utilisateur écrirait dedans, et la première sauvegarde remplacerait le
+seul exemplaire d'un chiffré peut-être récupérable par une liste vide. Le
+coffre s'ouvre donc en **lecture seule** :
+
+- `sauver()` est le point de passage unique de toute écriture, et refuse
+  d'écrire tant que la charge est illisible ;
+- créer, supprimer une page, ajouter ou retirer un média lèvent une erreur
+  explicite plutôt que d'échouer en silence ;
+- **changer le code est refusé** — dériver une nouvelle clé condamnerait
+  définitivement l'ancien contenu ;
+- la vue affiche ce qui s'est passé et la marche à suivre, au lieu d'un coffre
+  d'apparence vide.
+
+Le changement de code applique le même principe aux médias : tout est
+déchiffré *avant* de dériver la nouvelle clé, et un seul échec annule
+l'opération. Au-delà de ce point, l'ancien sel est perdu et ce qui n'a pas été
+relu ne sera plus jamais déchiffrable.
+
 **Ce que ça protège, et ce que ça ne protège pas.** Le modèle de menace est
 l'accès local au stockage du navigateur : quelqu'un qui ouvre les outils de
 développement ou lit le profil sur le disque ne voit que du chiffré. Ça ne
@@ -128,7 +153,7 @@ source et cassera si elle change. C'est pourquoi le repli sur l'iframe existe.
 node --test tests/coffre.test.js
 ```
 
-15 tests sur le coffre, en une seconde et demie. Node 18 ou plus récent, et
+21 tests sur le coffre, en moins de trois secondes. Node 18 ou plus récent, et
 toujours aucune dépendance : `node --test` est intégré au runtime et
 `crypto.subtle` y est le même que dans le navigateur — les tests exercent le
 vrai AES-GCM et le vrai PBKDF2, pas une simulation.
@@ -150,6 +175,10 @@ Ce que la suite couvre :
 | **Rien en clair sur le disque** | La promesse centrale du coffre |
 | IV différent à chaque écriture | Deux sauvegardes identiques restent indistinguables |
 | Un octet modifié invalide le message | AES-GCM est authentifié, pas seulement chiffrant |
+| **Une charge corrompue n'est jamais écrasée** | Le coffre passe en lecture seule au lieu de paraître vide |
+| Écritures et changement de code refusés en lecture seule | Aucun chemin ne contourne la protection |
+| Un coffre légitimement vide reste inscriptible | La protection ne se déclenche pas à tort |
+| Un média illisible annule le changement de code | Le sel n'est pas remplacé tant que tout n'a pas été relu |
 | Changement de code | Le contenu est rechiffré, l'ancien code ne rouvre rien |
 | Médias chiffrés au repos | Une image du coffre n'est plus une image sur le disque |
 
@@ -166,14 +195,6 @@ base64. Il décode désormais ce qui est réellement écrit avant de vérifier.
 
 - **La couverture s'arrête au coffre.** L'éditeur, le magasin d'état et
   l'analyse des liens ne sont pas testés.
-- **Un contenu corrompu s'ouvre en silence sur un coffre vide.** Le témoin est
-  vérifié, mais l'échec de déchiffrement de la charge est rattrapé par un
-  `catch` qui retombe sur une liste vide ([coffre.js:106](assets/js/coffre.js#L106)).
-  Une sauvegarde ultérieure écraserait alors des données peut-être
-  récupérables. Le test `un contenu altéré ouvre le coffre vide` fixe ce
-  comportement pour qu'un changement soit délibéré ; le corriger demanderait de
-  distinguer « coffre vide » de « charge illisible » et d'avertir plutôt que
-  d'écraser.
 - **Pas de synchronisation.** Les données vivent dans un seul navigateur ; la
   seule migration est l'export/import JSON. Vider les données de site efface
   le carnet.

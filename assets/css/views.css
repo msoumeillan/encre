@@ -253,6 +253,12 @@
 .coffre__erreur{
   min-height:18px;font-size:12.5px;color:var(--bad);margin-bottom:8px;
 }
+.coffre__etapes{
+  margin:0;padding-left:20px;color:var(--ink);
+  font-size:14.5px;line-height:1.7;
+}
+.coffre__etapes li{margin-bottom:10px}
+.coffre__etapes li::marker{color:var(--accent);font-weight:600}
 .nav__item[data-route="coffre"] .nav__hint{font-size:12px}
 
 /* ─────────── RÉGLAGES ─────────── */

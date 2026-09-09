@@ -1,6 +1,6 @@
 /* ============================================================
    ENCRE — vue Coffre secret
-   Trois états : à créer, verrouillé, ouvert.
+   Quatre états : à créer, verrouillé, ouvert, illisible.
    ============================================================ */
 (function (A) {
   'use strict';
@@ -12,8 +12,32 @@
     if (!C().dispo()) return main.append(indisponible());
     if (!C().estConfigure()) return main.append(creation(main));
     if (!C().estOuvert()) return main.append(verrou(main));
+    if (C().estIllisible()) return main.append(illisible());
     if (params && params.note) return unNote(main, params.note);
     main.append(liste(main));
+  }
+
+  /* ---------- charge corrompue : lecture seule ---------- */
+  function illisible() {
+    const wrap = el('.wrap.wrap--mid.fade-in');
+    wrap.append(el('.page-kicker', { text: 'Coffre' }));
+    wrap.append(el('h1.page-title', 'Contenu ', el('em', { text: 'illisible' })));
+    wrap.append(el('p.page-sub', { text: 'Votre code est bon — il a été vérifié. C’est le contenu chiffré qui ne se déchiffre plus : il a été altéré ou tronqué.' }));
+
+    wrap.append(el('.b-callout', { 'data-tone': 'alerte' },
+      el('.b-callout__emoji', { text: '⚠' }),
+      el('div', { html: '<b>Rien n’a été effacé, et le coffre refuse toute écriture.</b> Le contenu chiffré est toujours sur le disque. Si le carnet vous laissait écrire ici, la première sauvegarde le remplacerait par une page vide — c’est précisément ce qui est empêché.' })));
+
+    wrap.append(el('.section-head', el('h2', { text: 'Que faire' }), el('.rule')));
+    const etapes = el('ol.coffre__etapes');
+    etapes.append(el('li', { html: 'Faire une <b>sauvegarde complète</b> depuis Réglages → Données. Elle emporte le coffre tel quel, encore chiffré.' }));
+    etapes.append(el('li', { html: 'Chercher une sauvegarde plus ancienne : un export antérieur à l’altération se réimporte et rouvre normalement.' }));
+    etapes.append(el('li', { html: 'Ne <b>pas</b> changer le code : cela dériverait une nouvelle clé et rendrait l’ancien contenu définitivement irrécupérable.' }));
+    wrap.append(etapes);
+
+    wrap.append(el('div', { style: { height: '20px' } }));
+    wrap.append(el('button.btn', { text: '🔒 Verrouiller', onclick: () => { C().fermer(); A.paint(); } }));
+    return wrap;
   }
 
   /* ---------- chiffrement absent (ouverture en file://) ---------- */
