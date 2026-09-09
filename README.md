@@ -122,11 +122,58 @@ tiers chargé dans la page.
 Le prix de ce choix est assumé : l'extraction dépend de la structure HTML de la
 source et cassera si elle change. C'est pourquoi le repli sur l'iframe existe.
 
+## Tests
+
+```bash
+node --test tests/coffre.test.js
+```
+
+15 tests sur le coffre, en une seconde et demie. Node 18 ou plus récent, et
+toujours aucune dépendance : `node --test` est intégré au runtime et
+`crypto.subtle` y est le même que dans le navigateur — les tests exercent le
+vrai AES-GCM et le vrai PBKDF2, pas une simulation.
+
+`tests/harness.js` charge `coffre.js` hors du navigateur en lui fournissant
+des doublures pour ses deux seules dépendances, le magasin d'état et le
+stockage des médias. Le chargement passe par `new Function` plutôt que par
+`node:vm` : un contexte vm créerait des `Uint8Array` d'un autre realm, que
+WebCrypto refuse.
+
+Ce que la suite couvre :
+
+| Ce qui est vérifié | Pourquoi ça compte |
+| --- | --- |
+| Sel de 16 octets, 250 000 itérations | Les paramètres de dérivation ne peuvent pas être affaiblis en silence |
+| Deux coffres, même code, sels différents | Pas de clé réutilisable d'une installation à l'autre |
+| Aller-retour fermer / ouvrir | Le contenu survit au verrouillage |
+| Mauvais code rejeté | Le témoin fait son travail |
+| **Rien en clair sur le disque** | La promesse centrale du coffre |
+| IV différent à chaque écriture | Deux sauvegardes identiques restent indistinguables |
+| Un octet modifié invalide le message | AES-GCM est authentifié, pas seulement chiffrant |
+| Changement de code | Le contenu est rechiffré, l'ancien code ne rouvre rien |
+| Médias chiffrés au repos | Une image du coffre n'est plus une image sur le disque |
+
+La suite a été validée par mutation : passer l'IV en constante, abaisser les
+itérations à 1 000 ou retirer l'appel de chiffrement font bien échouer les
+tests concernés.
+
+Cette dernière vérification a servi. Le test « rien en clair » ne cherchait
+d'abord la chaîne secrète que dans l'état sérialisé — il passait donc alors
+même que le contenu était stocké sans chiffrement, simplement encodé en
+base64. Il décode désormais ce qui est réellement écrit avant de vérifier.
+
 ## Limites connues
 
-- **Aucun test automatisé.** Le candidat évident est le coffre : aller-retour
-  chiffrement/déchiffrement, échec sur mauvais code, rechiffrement au
-  changement de code.
+- **La couverture s'arrête au coffre.** L'éditeur, le magasin d'état et
+  l'analyse des liens ne sont pas testés.
+- **Un contenu corrompu s'ouvre en silence sur un coffre vide.** Le témoin est
+  vérifié, mais l'échec de déchiffrement de la charge est rattrapé par un
+  `catch` qui retombe sur une liste vide ([coffre.js:106](assets/js/coffre.js#L106)).
+  Une sauvegarde ultérieure écraserait alors des données peut-être
+  récupérables. Le test `un contenu altéré ouvre le coffre vide` fixe ce
+  comportement pour qu'un changement soit délibéré ; le corriger demanderait de
+  distinguer « coffre vide » de « charge illisible » et d'avertir plutôt que
+  d'écraser.
 - **Pas de synchronisation.** Les données vivent dans un seul navigateur ; la
   seule migration est l'export/import JSON. Vider les données de site efface
   le carnet.
