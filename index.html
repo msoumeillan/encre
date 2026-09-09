@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fr" data-theme="papier">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Encre — carnet & agenda</title>
+<meta name="description" content="Carnet de pensées, agenda quotidien et feed personnel.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Newsreader:ital,opsz,wght@0,6..72,200..700;1,6..72,200..700&family=Inter:wght@300..800&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=21">
+<link rel="stylesheet" href="assets/css/components.css?v=21">
+<link rel="stylesheet" href="assets/css/views.css?v=21">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%96%8B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="bg-layer" aria-hidden="true"></div>
+
+<div id="app" class="app">
+
+  <!-- ─────────── SIDEBAR ─────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__top">
+      <button class="brand" id="brandBtn" title="Accueil">
+        <span class="brand__mark" id="brandMark">✒</span>
+        <span class="brand__text">
+          <strong id="brandName">Encre</strong>
+          <em id="brandSub">carnet & agenda</em>
+        </span>
+      </button>
+      <button class="icon-btn sidebar__collapse" id="collapseBtn" title="Replier (⌘B)">
+        <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+
+    <button class="quick-search" id="searchBtn">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span>Rechercher…</span><kbd>⌘K</kbd>
+    </button>
+
+    <nav class="nav" id="nav">
+      <a class="nav__item" data-route="journal">
+        <svg viewBox="0 0 24 24"><path d="M4 4.5A2.5 2.5 0 016.5 2H20v18H6.5A2.5 2.5 0 004 22.5z"/><path d="M8 7h8M8 11h6"/></svg>
+        <span>Journal</span><i class="nav__hint" id="hintToday"></i>
+      </a>
+      <a class="nav__item" data-route="agenda">
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        <span>Agenda</span>
+      </a>
+      <a class="nav__item" data-route="feed">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="19" cy="12" r="1.6"/></svg>
+        <span>Fil</span><i class="nav__hint" id="hintPosts"></i>
+      </a>
+      <a class="nav__item" data-route="carnets">
+        <svg viewBox="0 0 24 24"><path d="M3 6.5A2.5 2.5 0 015.5 4H11v16H5.5A2.5 2.5 0 013 17.5z"/><path d="M21 6.5A2.5 2.5 0 0018.5 4H13v16h5.5A2.5 2.5 0 0021 17.5z"/></svg>
+        <span>Carnets</span>
+      </a>
+      <a class="nav__item" data-route="coffre">
+        <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/><circle cx="12" cy="15.5" r="1.4"/></svg>
+        <span>Coffre</span><i class="nav__hint" id="hintCoffre"></i>
+      </a>
+      <a class="nav__item" data-route="notes">
+        <svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v5h5"/></svg>
+        <span>Notes</span>
+      </a>
+    </nav>
+
+    <div class="nav-sep"><span>Carnets</span><button class="mini-btn" id="addCollectionBtn" title="Nouveau carnet">+</button></div>
+    <div class="collections" id="collectionList"></div>
+
+    <div class="sidebar__bottom">
+      <div class="streak" id="streakBox" title="Jours d'écriture consécutifs">
+        <span class="streak__flame">✳</span>
+        <span class="streak__n" id="streakN">0</span>
+        <span class="streak__label">jours de suite</span>
+      </div>
+      <div class="sidebar__actions">
+        <button class="icon-btn" id="themeToggle" title="Clair / sombre">
+          <svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 100 17 8.5 8.5 0 0010.5-6.5z"/></svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="Personnaliser">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6M18.7 18.7l-1.6-1.6M6.9 6.9L5.3 5.3"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <button class="sidebar-peek" id="sidebarPeek" title="Ouvrir le menu">
+    <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+
+  <!-- ─────────── MAIN ─────────── -->
+  <main class="main" id="main"></main>
+</div>
+
+<!-- ─────────── OVERLAYS ─────────── -->
+<div class="palette" id="palette" hidden>
+  <div class="palette__box">
+    <div class="palette__input">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="paletteInput" placeholder="Chercher une note, un jour, un post… ou tapez une commande" autocomplete="off" spellcheck="false">
+      <kbd>esc</kbd>
+    </div>
+    <div class="palette__results" id="paletteResults"></div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox__close" id="lbClose">✕</button>
+  <button class="lightbox__nav lightbox__nav--prev" id="lbPrev">‹</button>
+  <img id="lbImg" alt="">
+  <button class="lightbox__nav lightbox__nav--next" id="lbNext">›</button>
+  <div class="lightbox__count" id="lbCount"></div>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal__box" id="modalBox"></div>
+</div>
+
+<div class="slash" id="slash" hidden></div>
+<div class="toasts" id="toasts"></div>
+<input type="file" id="filePicker" accept="image/*" multiple hidden>
+
+<script src="assets/js/util.js?v=21"></script>
+<script src="assets/js/media.js?v=21"></script>
+<script src="assets/js/store.js?v=21"></script>
+<script src="assets/js/embed.js?v=21"></script>
+<script src="assets/js/coffre.js?v=21"></script>
+<script src="assets/js/gallery.js?v=21"></script>
+<script src="assets/js/editor.js?v=21"></script>
+<script src="assets/js/view-journal.js?v=21"></script>
+<script src="assets/js/view-agenda.js?v=21"></script>
+<script src="assets/js/view-feed.js?v=21"></script>
+<script src="assets/js/view-carnets.js?v=21"></script>
+<script src="assets/js/view-notes.js?v=21"></script>
+<script src="assets/js/view-coffre.js?v=21"></script>
+<script src="assets/js/view-settings.js?v=21"></script>
+<script src="assets/js/app.js?v=21"></script>
+</body>
+</html>

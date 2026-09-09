@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Éditeurs et outils locaux
+.vscode/
+.idea/
+.claude/
+*.code-workspace
+
+# Sauvegardes exportées depuis l'application
+*.encre.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
