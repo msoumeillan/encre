@@ -44,7 +44,8 @@ expose une petite surface publique. Les scripts sont chargés dans l'ordre de
 leurs dépendances ([index.html:126](index.html#L126)) : `util` → `media` →
 `store` → … → `app`. Pas d'`import`, donc pas de bundler, donc rien à
 recompiler entre deux modifications — un rechargement suffit. Les URL portent
-un numéro de version (`?v=21`) pour invalider le cache du navigateur.
+un numéro de version, incrémenté à chaque modification, pour invalider le
+cache du navigateur.
 
 Le routeur ([app.js](assets/js/app.js)) tient dans une table
 `route → render(mount, params)` et se synchronise sur `location.hash`. Ajouter
