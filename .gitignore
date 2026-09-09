@@ -8,7 +8,10 @@ __pycache__/
 .claude/
 *.code-workspace
 
-# Sauvegardes exportées depuis l'application
+# Sauvegardes exportées depuis l'application (contenu personnel)
+encre-sauvegarde-*.json
+encre-texte-*.json
+encre-*.md
 *.encre.json
 
 # OS
